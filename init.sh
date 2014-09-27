@@ -3,6 +3,9 @@ set -x
 set -e
 cd $(dirname $0)
 
+supervisorctl stop isucon_go
+supervisorctl start isucon_go
+
 myuser=root
 mydb=isu4_qualifier
 myhost=127.0.0.1
