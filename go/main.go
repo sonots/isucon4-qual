@@ -79,7 +79,7 @@ type LastLogin struct {
 }
 
 // key is user_id
-var LastLogins map[int]LastLogin = map[int]LastLogin{}
+var LastLogins = map[int](*LastLogin){}
 
 func (u *User) getLastLogin() *LastLogin {
 	if LastLogins[u.ID] != nil {
@@ -230,7 +230,7 @@ func attemptLogin(req *http.Request) (*User, error) {
 			mutex.Lock()
 			BanLogs[remoteAddr] = sql.NullInt64{0, true}
 			UserBlockLogs[user.ID] = sql.NullInt64{0, true}
-			LastLogins[user.ID] = LastLogin{loginName, remoteAddr, time.Now()}
+			LastLogins[user.ID] = &LastLogin{loginName, remoteAddr, time.Now()}
 			mutex.Unlock()
 		} else {
 			mutex.Lock()
