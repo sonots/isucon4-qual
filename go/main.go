@@ -404,58 +404,54 @@ func lockedUsers() []string {
 
 func initLoad() {
 	rows, err := db.Query(
-		"SELECT id FROM users ORDER BY id",
+		"select id, ip from (select * from login_log where succeeded = 1 order by id DESC) A group by ip",
 	)
 
 	for rows.Next() {
-		var user_id int
-		if err = rows.Scan(&user_id); err != nil {
-			continue
-		}
-		fmt.Print(user_id)
-		fmt.Print(" ")
-		fmt.Println(time.Now())
-
-		// isLockedUser(user *User)
-		var ni sql.NullInt64
-		row := db.QueryRow(
-			"SELECT COUNT(1) AS failures FROM login_log WHERE "+
-				"user_id = ? AND id > IFNULL((select id from login_log where user_id = ? AND "+
-				"succeeded = 1 ORDER BY id DESC LIMIT 1), 0);",
-			user_id, user_id,
-		)
-		if err = row.Scan(&ni); err != nil {
-			continue
-		}
-		UserBlockLogs[user_id] = ni
-	}
-
-	rows, err = db.Query(
-		"SELECT DISCINCT ip FROM login_log ORDER BY ip",
-	)
-
-	for rows.Next() {
+		var id int
 		var ip string
-		if err = rows.Scan(&ip); err != nil {
+		if err = rows.Scan(&id, &ip); err != nil {
 			continue
 		}
-		fmt.Print(ip)
+		fmt.Print(id)
 		fmt.Print(" ")
 		fmt.Println(time.Now())
 
-		// isBannedIP(ip string)
-		var ni sql.NullInt64
+		// Baned count
+		var count sql.NullInt64
 		row := db.QueryRow(
-			"SELECT COUNT(1) AS failures FROM login_log WHERE "+
-				"ip = ? AND id > IFNULL((select id from login_log where ip = ? AND "+
-				"succeeded = 1 ORDER BY id DESC LIMIT 1), 0);",
-			ip, ip,
+			"SELECT COUNT(1) AS failures FROM login_log WHERE id > ? AND succeeded = 0 AND ip = ?",
+			id, ip,
 		)
-		if err = row.Scan(&ni); err != nil {
+		if err = row.Scan(&count); err != nil {
 			continue
 		}
-		BanLogs[ip] = ni
+		BanLogs[ip] = count
 	}
+
+	rows, err := db.Query(
+		"select id, user_id from (select * from login_log where succeeded = 1 order by id DESC) A group by ip",
+	)
+
+	for rows.Next() {
+		var id int
+		var user_id string
+		if err = rows.Scan(&id, &user_id); err != nil {
+			continue
+		}
+
+		// user block count
+		var count sql.NullInt64
+		row := db.QueryRow(
+			"SELECT COUNT(1) AS failures FROM login_log WHERE id > ? AND succeeded = 0 AND user_id = ?",
+			id, user_id,
+		)
+		if err = row.Scan(&count); err != nil {
+			continue
+		}
+		UserBlockLogs[user_id] = count
+	}
+
 }
 
 func main() {
