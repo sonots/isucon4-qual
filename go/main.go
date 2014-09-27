@@ -138,9 +138,10 @@ func isLockedUser(user *User) (bool, error) {
 		return false, nil
 	}
 
-	cahedFailure := UserBlockLogs[user.ID]
-	if cahedFailure.Valid {
-		return IPBanThreshold <= int(cahedFailure.Int64), nil
+	if UserBlockLogs[user.ID].Valid {
+		//fmt.Printf("%d ", user.ID)
+		//fmt.Printf("cached:%d\n", UserBlockLogs[user.ID].Int64)
+		return IPBanThreshold <= int(UserBlockLogs[user.ID].Int64), nil
 	}
 
 	var ni sql.NullInt64
@@ -154,10 +155,20 @@ func isLockedUser(user *User) (bool, error) {
 
 	switch {
 	case err == sql.ErrNoRows:
+		UserBlockLogs[user.ID] = sql.NullInt64{0, true}
 		return false, nil
 	case err != nil:
+		UserBlockLogs[user.ID] = sql.NullInt64{0, true}
 		return false, err
 	}
+
+	mutex.Lock()
+	//fmt.Printf("%d ", user.ID)
+	//fmt.Printf("correct:%d\n", ni.Int64)
+	if !UserBlockLogs[user.ID].Valid {
+		UserBlockLogs[user.ID] = ni
+	}
+	mutex.Unlock()
 
 	return UserLockThreshold <= int(ni.Int64), nil
 }
@@ -165,9 +176,9 @@ func isLockedUser(user *User) (bool, error) {
 func isBannedIP(ip string) (bool, error) {
 	var ni sql.NullInt64
 
-	cahedFailure := BanLogs[ip]
-	if cahedFailure.Valid {
-		return IPBanThreshold <= int(cahedFailure.Int64), nil
+	if BanLogs[ip].Valid {
+		//fmt.Printf("%s cached:%d ", ip, cachedFailure.Int64)
+		return IPBanThreshold <= int(BanLogs[ip].Int64), nil
 	}
 
 	row := db.QueryRow(
@@ -180,10 +191,19 @@ func isBannedIP(ip string) (bool, error) {
 
 	switch {
 	case err == sql.ErrNoRows:
+		BanLogs[ip] = sql.NullInt64{0, true}
 		return false, nil
 	case err != nil:
+		BanLogs[ip] = sql.NullInt64{0, true}
 		return false, err
 	}
+
+	mutex.Lock()
+	//fmt.Printf("correct:%d\n", ni.Int64)
+	if !BanLogs[ip].Valid {
+		BanLogs[ip] = ni
+	}
+	mutex.Unlock()
 
 	return IPBanThreshold <= int(ni.Int64), nil
 }
@@ -202,6 +222,24 @@ func attemptLogin(req *http.Request) (*User, error) {
 
 	defer func() {
 		createLoginLog(succeeded, remoteAddr, loginName, user)
+		if succeeded {
+			mutex.Lock()
+			BanLogs[remoteAddr] = sql.NullInt64{0, true}
+			UserBlockLogs[user.ID] = sql.NullInt64{0, true}
+			LastLogins[user.ID] = LastLogin{loginName, remoteAddr, time.Now()}
+			mutex.Unlock()
+		} else {
+			mutex.Lock()
+			BanLogs[remoteAddr] = sql.NullInt64{
+				Int64: BanLogs[remoteAddr].Int64 + 1,
+				Valid: true,
+			}
+			UserBlockLogs[user.ID] = sql.NullInt64{
+				Int64: UserBlockLogs[user.ID].Int64 + 1,
+				Valid: true,
+			}
+			mutex.Unlock()
+		}
 	}()
 
 	row := db.QueryRow(
@@ -218,22 +256,10 @@ func attemptLogin(req *http.Request) (*User, error) {
 	}
 
 	if banned, _ := isBannedIP(remoteAddr); banned {
-		mutex.Lock()
-		BanLogs[remoteAddr] = sql.NullInt64{
-			Int64: BanLogs[remoteAddr].Int64 + 1,
-			Valid: true,
-		}
-		mutex.Unlock()
 		return nil, ErrBannedIP
 	}
 
 	if locked, _ := isLockedUser(user); locked {
-		mutex.Lock()
-		UserBlockLogs[user.ID] = sql.NullInt64{
-			Int64: UserBlockLogs[user.ID].Int64 + 1,
-			Valid: true,
-		}
-		mutex.Unlock()
 		return nil, ErrLockedUser
 	}
 
@@ -244,11 +270,6 @@ func attemptLogin(req *http.Request) (*User, error) {
 	if user.PasswordHash != calcPassHash(password, user.Salt) {
 		return nil, ErrWrongPassword
 	}
-	mutex.Lock()
-	UserBlockLogs[user.ID] = sql.NullInt64{0, true}
-	BanLogs[remoteAddr] = sql.NullInt64{0, true}
-	LastLogins[user.ID] = LastLogin{loginName, remoteAddr, time.Now()}
-	mutex.Unlock()
 	succeeded = true
 	return user, nil
 }
@@ -432,6 +453,7 @@ func main() {
 			}
 
 			session.Set("notice", notice)
+			fmt.Printf("%d %s\n", user, notice)
 			r.Redirect("/")
 			return
 		}
