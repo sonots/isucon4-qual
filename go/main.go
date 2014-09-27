@@ -141,7 +141,7 @@ func isLockedUser(user *User) (bool, error) {
 	if UserBlockLogs[user.ID].Valid {
 		//fmt.Printf("%d ", user.ID)
 		//fmt.Printf("cached:%d\n", UserBlockLogs[user.ID].Int64)
-		return IPBanThreshold <= int(UserBlockLogs[user.ID].Int64), nil
+		return UserLockThreshold <= int(UserBlockLogs[user.ID].Int64), nil
 	}
 
 	var ni sql.NullInt64
@@ -453,7 +453,6 @@ func main() {
 			}
 
 			session.Set("notice", notice)
-			fmt.Printf("%d %s\n", user, notice)
 			r.Redirect("/")
 			return
 		}
