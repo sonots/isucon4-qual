@@ -25,9 +25,10 @@ var (
 	IPBanThreshold    int
 )
 
+var mutex = &sync.Mutex{}
+
 type BanLog struct {
 	failureCount int64
-	lastSuccess  time.Time
 }
 
 // key is ip
@@ -35,7 +36,6 @@ var BanLogs map[string]BanLog = map[string]BanLog{}
 
 type UserBlockLog struct {
 	failureCount int64
-	lastSuccess  time.Time
 }
 
 // key user_id
@@ -85,6 +85,9 @@ type LastLogin struct {
 	IP        string
 	CreatedAt time.Time
 }
+
+// key is user_id
+var LastLogins map[int64]LastLogin = map[int64]LastLogin{}
 
 func (u *User) getLastLogin() *LastLogin {
 	rows, err := db.Query(
@@ -212,10 +215,16 @@ func attemptLogin(req *http.Request) (*User, error) {
 	}
 
 	if banned, _ := isBannedIP(remoteAddr); banned {
+		mutex.Lock()
+		BanLogs[remoteAddr].failureCount += 1
+		mutex.Unlock()
 		return nil, ErrBannedIP
 	}
 
 	if locked, _ := isLockedUser(user); locked {
+		mutex.Lock()
+		UserBlockLogs[user.ID].failureCount += 1
+		mutex.Unlock()
 		return nil, ErrLockedUser
 	}
 
@@ -226,7 +235,11 @@ func attemptLogin(req *http.Request) (*User, error) {
 	if user.PasswordHash != calcPassHash(password, user.Salt) {
 		return nil, ErrWrongPassword
 	}
-
+	mutex.Lock()
+	BanLogs[remoteAddr].failureCount = 0
+	UserBlockLogs[user.ID].failureCount = 0
+	LastLogins[user.ID] = LastLogin{loginName, remoteAddr, time.Now()}
+	mutex.Unlock()
 	succeeded = true
 	return user, nil
 }
