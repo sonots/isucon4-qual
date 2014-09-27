@@ -23,16 +23,25 @@ var (
 	IPBanThreshold    int
 )
 
-type LoginLog struct {
-	user_id    int64
-	login      string
-	ip         string
-	banCount   int64
-	blockCount int64
+type BanLog struct {
+	user_id  int64
+	login    string
+	ip       string
+	banCount int64
 }
 
-// key is login(login_name)
-var LoginLogs map[string]LoginLog = map[string]LoginLog{}
+// key is ip
+var BanLogs map[string]BanLog = map[string]BanLog{}
+
+type UserBlockLog struct {
+	user_id        int64
+	login          string
+	ip             string
+	userBlockCount int64
+}
+
+// key user_id
+var UserBlockLogs map[int64]UserBlockLog = map[int64]UserBlockLog{}
 
 func init() {
 	dsn := fmt.Sprintf(
