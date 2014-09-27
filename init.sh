@@ -15,4 +15,6 @@ mysql -h ${myhost} -P ${myport} -u ${myuser} ${mydb} < sql/dummy_log.sql
 # index
 mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `login_log_user_id_succeeded` on login_log (`user_id`, `succeeded`);'  ${mydb} 
 mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `login_log_succeeded_ip` on login_log ( `succeeded`, `ip`);'           ${mydb} 
+mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `login_log_ip` on `login_log` (`ip`);'       ${mydb} 
+mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `users_login` on users (`login`);'           ${mydb} 
 
