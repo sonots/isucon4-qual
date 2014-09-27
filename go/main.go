@@ -3,15 +3,12 @@ package main
 import (
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"github.com/go-martini/martini"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/martini-contrib/render"
 	"github.com/martini-contrib/sessions"
-	"github.com/sonots/go-sql_metrics"
 	"net/http"
-	"net/http/pprof"
 	"runtime"
 	"strconv"
 	"sync"
@@ -19,8 +16,7 @@ import (
 	"time"
 )
 
-var _db *sql.DB
-var db *sql_metrics.DB
+var db *sql.DB
 var (
 	UserLockThreshold int
 	IPBanThreshold    int
@@ -49,8 +45,7 @@ func init() {
 
 	var err error
 
-	_db, err = sql.Open("mysql", dsn)
-	db = sql_metrics.WrapDB("mysql", _db)
+	db, err = sql.Open("mysql", dsn)
 	if err != nil {
 		panic(err)
 	}
@@ -588,27 +583,6 @@ func main() {
 		return
 	})
 	initUserTable() // just for development
-
-	verbose := flag.Bool("verbose", false, "verbose print of metrics")
-	disable := flag.Bool("disable", false, "disable metrics")
-	if *verbose {
-		sql_metrics.Verbose = true
-		sql_metrics.Print(-1)
-	} else if *disable {
-		sql_metrics.Enable = false
-	} else {
-		sql_metrics.Print(70)
-	}
-
-	m.Get("/debug/pprof", pprof.Index)
-	m.Get("/debug/pprof/cmdline", pprof.Cmdline)
-	m.Get("/debug/pprof/profile", pprof.Profile)
-	m.Get("/debug/pprof/symbol", pprof.Symbol)
-	m.Post("/debug/pprof/symbol", pprof.Symbol)
-	m.Get("/debug/pprof/block", pprof.Handler("block").ServeHTTP)
-	m.Get("/debug/pprof/heap", pprof.Handler("heap").ServeHTTP)
-	m.Get("/debug/pprof/goroutine", pprof.Handler("goroutine").ServeHTTP)
-	m.Get("/debug/pprof/threadcreate", pprof.Handler("threadcreate").ServeHTTP)
 
 	http.ListenAndServe(":8080", m)
 }
