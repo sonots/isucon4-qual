@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/go-martini/martini"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/martini-contrib/render"
 	"github.com/martini-contrib/sessions"
+	"github.com/sonots/martini-contrib/render"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -86,7 +86,7 @@ func (u *User) getLastLogin() *LastLogin {
 		u.LastLogin = LastLoginsSecond[u.ID]
 		return LastLoginsSecond[u.ID]
 	}
-	
+
 	rows, err := db.Query(
 		"SELECT login, ip, created_at FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2",
 		u.ID,
@@ -233,8 +233,8 @@ func attemptLogin(req *http.Request) (*User, error) {
 			UserBlockLogs[user.ID] = sql.NullInt64{0, true}
 			LastLoginsSecond[user.ID] = LastLogins[user.ID]
 			LastLogins[user.ID] = &LastLogin{
-				Login: loginName,
-				IP: remoteAddr,
+				Login:     loginName,
+				IP:        remoteAddr,
 				CreatedAt: time.Now(),
 			}
 			mutex.Unlock()
@@ -527,7 +527,8 @@ func main() {
 	}))
 
 	m.Get("/", func(r render.Render, session sessions.Session) {
-		r.HTML(200, "index", map[string]string{"Flash": getFlash(session, "notice")})
+		r.TopHTML(200, getFlash(session, "notice"))
+		//r.HTML(200, "index", map[string]string{"Flash": getFlash(session, "notice")})
 	})
 
 	m.Post("/login", func(req *http.Request, r render.Render, session sessions.Session) {
