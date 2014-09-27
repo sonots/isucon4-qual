@@ -34,6 +34,9 @@ var BanLogs = map[string]sql.NullInt64{}
 // key user_id => failure counts
 var UserBlockLogs = map[int]sql.NullInt64{}
 
+var UserIdTable = map[string](*User){}
+var UserLoginTable = map[string](*User){}
+
 func init() {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Local",
@@ -247,18 +250,23 @@ func attemptLogin(req *http.Request) (*User, error) {
 		}
 	}()
 
-	row := db.QueryRow(
-		"SELECT id, login, password_hash, salt FROM users WHERE login = ?",
-		loginName,
-	)
-	err := row.Scan(&user.ID, &user.Login, &user.PasswordHash, &user.Salt)
+	user = UserLoginTable[loginName]
+	//fmt.Printf("%s ", loginName)
+	//fmt.Println(user)
+	//row := db.QueryRow(
+	//	"SELECT id, login, password_hash, salt FROM users WHERE login = ?",
+	//	loginName,
+	//)
+	//err := row.Scan(&user.ID, &user.Login, &user.PasswordHash, &user.Salt)
 
-	switch {
-	case err == sql.ErrNoRows:
-		user = nil
-	case err != nil:
-		return nil, err
-	}
+	//switch {
+	//case err == sql.ErrNoRows:
+	//	user = nil
+	//case err != nil:
+	//	return nil, err
+	//}
+	//fmt.Println(user)
+	//fmt.Println()
 
 	if banned, _ := isBannedIP(remoteAddr); banned {
 		return nil, ErrBannedIP
@@ -281,15 +289,23 @@ func attemptLogin(req *http.Request) (*User, error) {
 
 func getCurrentUser(userId interface{}) *User {
 	user := &User{}
-	row := db.QueryRow(
-		"SELECT id, login, password_hash, salt FROM users WHERE id = ?",
-		userId,
-	)
-	err := row.Scan(&user.ID, &user.Login, &user.PasswordHash, &user.Salt)
+	//row := db.QueryRow(
+	//	"SELECT id, login, password_hash, salt FROM users WHERE id = ?",
+	//	userId,
+	//)
+	//err := row.Scan(&user.ID, &user.Login, &user.PasswordHash, &user.Salt)
 
-	if err != nil {
+	//if err != nil {
+	//	return nil
+	//}
+	user_id, ok := userId.(string)
+	//fmt.Print(user_id)
+	//fmt.Print(user)
+	if !ok {
 		return nil
 	}
+	user = UserIdTable[user_id]
+	//fmt.Println(user)
 
 	return user
 }
@@ -478,6 +494,20 @@ func initLoad() {
 		UserBlockLogs[user_id] = count
 	}
 
+	initUserTable()
+}
+
+func initUserTable() {
+	fmt.Println("InitUserTable")
+	rows, _ := db.Query(
+		"SELECT id, login, password_hash, salt FROM users",
+	)
+	for rows.Next() {
+		user := &User{}
+		_ = rows.Scan(&user.ID, &user.Login, &user.PasswordHash, &user.Salt)
+		UserIdTable[strconv.Itoa(user.ID)] = user
+		UserLoginTable[user.Login] = user
+	}
 }
 
 func main() {
@@ -550,6 +580,7 @@ func main() {
 		r.Redirect("/")
 		return
 	})
+	initUserTable() // just for development
 
 	verbose := flag.Bool("verbose", false, "verbose print of metrics")
 	disable := flag.Bool("disable", false, "disable metrics")
