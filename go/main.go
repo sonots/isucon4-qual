@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"net/http/pprof"
 	"strconv"
+	"sync"
+	_ "sync/atomic"
 )
 
 var _db *sql.DB
@@ -20,6 +22,17 @@ var (
 	UserLockThreshold int
 	IPBanThreshold    int
 )
+
+type LoginLog struct {
+	user_id    int64
+	login      string
+	ip         string
+	banCount   int64
+	blockCount int64
+}
+
+// key is login(login_name)
+var LoginLogs map[string]LoginLog = map[string]LoginLog{}
 
 func init() {
 	dsn := fmt.Sprintf(
