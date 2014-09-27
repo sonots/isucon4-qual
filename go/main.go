@@ -86,9 +86,9 @@ type LastLogin struct {
 var LastLogins = map[int](*LastLogin){}
 
 func (u *User) getLastLogin() *LastLogin {
-	if LastLogins[u.ID] != nil {
-		return LastLogins[u.ID]
-	}
+	//if LastLogins[u.ID] != nil {
+	//	return LastLogins[u.ID]
+	//}
 
 	rows, err := db.Query(
 		"SELECT login, ip, created_at FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2",
