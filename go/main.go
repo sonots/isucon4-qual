@@ -9,6 +9,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/martini-contrib/sessions"
 	"github.com/sonots/martini-contrib/render"
+	//"net"
 	"net/http"
 	"os"
 	"runtime"
@@ -603,4 +604,17 @@ func main() {
 	})
 
 	http.ListenAndServe(":8080", m)
+	// unix domain socket did not improve score, sigh ...
+	//proto := "unix"
+	//addr := "/tmp/golang-webapp.sock"
+	//l, e := net.Listen(proto, addr)
+	//if e != nil {
+	//	fmt.Println(e)
+	//}
+	////as the daemon is launched as root, change to permission of the socket to allow non-root to connect
+	//if proto == "unix" {
+	//	os.Chmod(addr, 0777)
+	//}
+	//httpSrv := http.Server{Addr: addr, Handler: m}
+	//httpSrv.Serve(l)
 }
