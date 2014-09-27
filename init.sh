@@ -18,3 +18,4 @@ mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `login_log_succeed
 mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `login_log_ip` on `login_log` (`ip`);'       ${mydb} 
 mysql -h ${myhost} -P ${myport} -u ${myuser} -e 'create index `users_login` on users (`login`);'           ${mydb} 
 
+curl -o /dev/null http://localhost/init
