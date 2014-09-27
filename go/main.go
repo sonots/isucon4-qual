@@ -146,6 +146,11 @@ func isLockedUser(user *User) (bool, error) {
 		return false, nil
 	}
 
+	var cahedFailure UserBlockLog := UserBlockLogs[user.ID]
+	if cahedFailure != nil {
+		return IPBanThreshold <= int(cahedFailure.failureCount), nil
+	}
+
 	var ni sql.NullInt64
 	row := db.QueryRow(
 		"SELECT COUNT(1) AS failures FROM login_log WHERE "+
@@ -167,6 +172,12 @@ func isLockedUser(user *User) (bool, error) {
 
 func isBannedIP(ip string) (bool, error) {
 	var ni sql.NullInt64
+	
+	var cahedFailure BanLog := BanLogs[ip]
+	if cahedFailure != nil {
+		return IPBanThreshold <= int(cahedFailure.failureCount), nil
+	}	
+	
 	row := db.QueryRow(
 		"SELECT COUNT(1) AS failures FROM login_log WHERE "+
 			"ip = ? AND id > IFNULL((select id from login_log where ip = ? AND "+
