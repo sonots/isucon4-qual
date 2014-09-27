@@ -530,8 +530,9 @@ func initUserTable() {
 }
 
 func main() {
-	cpus := runtime.NumCPU()
-	runtime.GOMAXPROCS(cpus)
+	//cpus := runtime.NumCPU()
+	//runtime.GOMAXPROCS(cpus)
+	runtime.GOMAXPROCS(32)
 
 	m := martini.Classic()
 
