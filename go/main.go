@@ -429,13 +429,13 @@ func initLoad() {
 		BanLogs[ip] = count
 	}
 
-	rows, err := db.Query(
+	rows, err = db.Query(
 		"select id, user_id from (select * from login_log where succeeded = 1 order by id DESC) A group by ip",
 	)
 
 	for rows.Next() {
 		var id int
-		var user_id string
+		var user_id int
 		if err = rows.Scan(&id, &user_id); err != nil {
 			continue
 		}
