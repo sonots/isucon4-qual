@@ -12,6 +12,7 @@ import (
 	"github.com/sonots/go-sql_metrics"
 	"net/http"
 	"net/http/pprof"
+	"runtime"
 	"strconv"
 	"sync"
 	_ "sync/atomic"
@@ -476,6 +477,9 @@ func initLoad() {
 }
 
 func main() {
+	cpus := runtime.NumCPU()
+	runtime.GOMAXPROCS(cpus)
+
 	m := martini.Classic()
 
 	store := sessions.NewCookieStore([]byte("secret-isucon"))
