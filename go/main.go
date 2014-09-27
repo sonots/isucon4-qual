@@ -86,9 +86,9 @@ type LastLogin struct {
 var LastLogins = map[int](*LastLogin){}
 
 func (u *User) getLastLogin() *LastLogin {
-	//if LastLogins[u.ID] != nil {
-	//	return LastLogins[u.ID]
-	//}
+	if LastLogins[u.ID] != nil {
+		return LastLogins[u.ID]
+	}
 
 	rows, err := db.Query(
 		"SELECT login, ip, created_at FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2",
@@ -234,7 +234,10 @@ func attemptLogin(req *http.Request) (*User, error) {
 			mutex.Lock()
 			BanLogs[remoteAddr] = sql.NullInt64{0, true}
 			UserBlockLogs[user.ID] = sql.NullInt64{0, true}
-			LastLogins[user.ID] = &LastLogin{loginName, remoteAddr, time.Now()}
+			LastLogins[user.ID] = &LastLogin{}
+			LastLogins[user.ID].Login = loginName
+			LastLogins[user.ID].IP = remoteAddr
+			LastLogins[user.ID].CreatedAt = time.Now()
 			mutex.Unlock()
 		} else {
 			mutex.Lock()
