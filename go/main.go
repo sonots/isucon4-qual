@@ -457,9 +457,6 @@ func initLoad() {
 		if err = rows.Scan(&id, &ip); err != nil {
 			continue
 		}
-		fmt.Print(id)
-		fmt.Print(" ")
-		fmt.Println(time.Now())
 
 		// Baned count
 		var count sql.NullInt64
