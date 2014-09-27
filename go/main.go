@@ -423,6 +423,58 @@ func lockedUsers() []string {
 	return userIds
 }
 
+func initLoad() {
+	rows, err := db.Query(
+		"select id, ip from (select * from login_log where succeeded = 1 order by id DESC) A group by ip",
+	)
+
+	for rows.Next() {
+		var id int
+		var ip string
+		if err = rows.Scan(&id, &ip); err != nil {
+			continue
+		}
+		fmt.Print(id)
+		fmt.Print(" ")
+		fmt.Println(time.Now())
+
+		// Baned count
+		var count sql.NullInt64
+		row := db.QueryRow(
+			"SELECT COUNT(1) AS failures FROM login_log WHERE id > ? AND succeeded = 0 AND ip = ?",
+			id, ip,
+		)
+		if err = row.Scan(&count); err != nil {
+			continue
+		}
+		BanLogs[ip] = count
+	}
+
+	rows, err = db.Query(
+		"select id, user_id from (select * from login_log where succeeded = 1 order by id DESC) A group by ip",
+	)
+
+	for rows.Next() {
+		var id int
+		var user_id int
+		if err = rows.Scan(&id, &user_id); err != nil {
+			continue
+		}
+
+		// user block count
+		var count sql.NullInt64
+		row := db.QueryRow(
+			"SELECT COUNT(1) AS failures FROM login_log WHERE id > ? AND succeeded = 0 AND user_id = ?",
+			id, user_id,
+		)
+		if err = row.Scan(&count); err != nil {
+			continue
+		}
+		UserBlockLogs[user_id] = count
+	}
+
+}
+
 func main() {
 	m := martini.Classic()
 
@@ -479,6 +531,16 @@ func main() {
 			"banned_ips":   bannedIPs(),
 			"locked_users": lockedUsers(),
 		})
+	})
+
+	m.Get("/init", func(r render.Render) {
+		fmt.Printf("initLoad started")
+		startTime := time.Now()
+		initLoad()
+		elapsedTime := time.Now().Sub(startTime)
+		fmt.Printf("initLoad finished %s", elapsedTime*time.Second)
+		r.Redirect("/")
+		return
 	})
 
 	verbose := flag.Bool("verbose", false, "verbose print of metrics")
