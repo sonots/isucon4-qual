@@ -87,9 +87,9 @@ var LastLogins = map[int](*LastLogin){}
 
 func (u *User) getLastLogin() *LastLogin {
 	if LastLogins[u.ID] != nil {
+		u.LastLogin = LastLogins[u.ID]
 		return LastLogins[u.ID]
 	}
-
 	rows, err := db.Query(
 		"SELECT login, ip, created_at FROM login_log WHERE succeeded = 1 AND user_id = ? ORDER BY id DESC LIMIT 2",
 		u.ID,
@@ -234,10 +234,11 @@ func attemptLogin(req *http.Request) (*User, error) {
 			mutex.Lock()
 			BanLogs[remoteAddr] = sql.NullInt64{0, true}
 			UserBlockLogs[user.ID] = sql.NullInt64{0, true}
-			LastLogins[user.ID] = &LastLogin{}
-			LastLogins[user.ID].Login = loginName
-			LastLogins[user.ID].IP = remoteAddr
-			LastLogins[user.ID].CreatedAt = time.Now()
+			LastLogins[user.ID] = &LastLogin{
+				Login: loginName,
+				IP: remoteAddr,
+				CreatedAt: time.Now(),
+			}
 			mutex.Unlock()
 		} else {
 			mutex.Lock()
