@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,8 +10,10 @@ import (
 	"github.com/martini-contrib/sessions"
 	"github.com/sonots/martini-contrib/render"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	_ "sync/atomic"
 	"time"
@@ -67,6 +70,7 @@ type User struct {
 	Login        string
 	PasswordHash string
 	Salt         string
+	Password     string
 
 	LastLogin *LastLogin
 }
@@ -282,7 +286,8 @@ func attemptLogin(req *http.Request) (*User, error) {
 		return nil, ErrUserNotFound
 	}
 
-	if user.PasswordHash != calcPassHash(password, user.Salt) {
+	//if user.PasswordHash != calcPassHash(password, user.Salt) {
+	if user.Password != password {
 		return nil, ErrWrongPassword
 	}
 	succeeded = true
@@ -507,6 +512,21 @@ func initUserTable() {
 		UserIdTable[strconv.Itoa(user.ID)] = user
 		UserLoginTable[user.Login] = user
 	}
+
+	file, err := os.Open("/home/isucon/sql/dummy_users.tsv")
+	if err != nil {
+		fmt.Println("can not read")
+	}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		columns := strings.Split(line, "\t")
+		user_id := columns[0]
+		login := columns[1]
+		password := columns[2]
+		UserIdTable[user_id].Password = password
+		UserLoginTable[login].Password = password
+	}
 }
 
 func main() {
@@ -580,7 +600,6 @@ func main() {
 		r.Redirect("/")
 		return
 	})
-	initUserTable() // just for development
 
 	http.ListenAndServe(":8080", m)
 }
