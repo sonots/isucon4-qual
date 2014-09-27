@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"sync"
 	_ "sync/atomic"
+	"time"
 )
 
 var _db *sql.DB
@@ -24,20 +25,16 @@ var (
 )
 
 type BanLog struct {
-	user_id  int64
-	login    string
-	ip       string
-	banCount int64
+	failureCount int64
+	lastSuccess  time.Time
 }
 
 // key is ip
 var BanLogs map[string]BanLog = map[string]BanLog{}
 
 type UserBlockLog struct {
-	user_id        int64
-	login          string
-	ip             string
-	userBlockCount int64
+	failureCount int64
+	lastSuccess  time.Time
 }
 
 // key user_id
