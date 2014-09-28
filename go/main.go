@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/go-martini/martini"
+	//"github.com/go-martini/martini"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/martini-contrib/sessions"
-	"github.com/sonots/martini-contrib/render"
+	//"github.com/martini-contrib/sessions"
+	//"github.com/sonots/martini-contrib/render"
 	//"net"
+	"encoding/json"
+	"html/template"
 	"net/http"
 	"os"
 	"runtime"
@@ -25,6 +27,9 @@ var (
 	UserLockThreshold int
 	IPBanThreshold    int
 )
+
+var indexTmpl = template.Must(template.New("index").ParseFiles("templates/layout.tmpl", "templates/index.tmpl"))
+var mypageTmpl = template.Must(template.New("mypage").ParseFiles("templates/layout.tmpl", "templates/mypage.tmpl"))
 
 var mutex = &sync.Mutex{}
 
@@ -535,22 +540,43 @@ func main() {
 	//runtime.GOMAXPROCS(cpus)
 	runtime.GOMAXPROCS(32)
 
-	m := martini.Classic()
+	//m := martini.Classic()
 
-	store := sessions.NewCookieStore([]byte("secret-isucon"))
-	m.Use(sessions.Sessions("isucon_go_session", store))
+	//store := sessions.NewCookieStore([]byte("secret-isucon"))
+	//m.Use(sessions.Sessions("isucon_go_session", store))
 
-	m.Use(martini.Static("../public"))
-	m.Use(render.Renderer(render.Options{
-		Layout: "layout",
-	}))
+	http.Handle("/images", http.StripPrefix("/images", http.FileServer(http.Dir("../public"))))
+	http.Handle("/stylesheets", http.StripPrefix("/stylesheets", http.FileServer(http.Dir("../public"))))
+	//m.Use(martini.Static("../public"))
+	//m.Use(render.Renderer(render.Options{
+	//	Layout: "layout",
+	//}))
 
-	m.Get("/", func(r render.Render, session sessions.Session) {
-		r.TopHTML(200, getFlash(session, "notice"))
+	//m.Get("/", func(r render.Render, session sessions.Session) {
+	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		cookie, err := req.Cookie("notice")
+		flash := ""
+		if err != nil {
+			switch err {
+			case http.ErrNoCookie:
+				flash = ""
+			default:
+				fmt.Println("/ get cookie failed")
+				flash = ""
+			}
+		}
+		if cookie != nil {
+			flash = cookie.Value
+		}
+		cookie = &http.Cookie{Name: "notice", Value: ""}
+		http.SetCookie(w, cookie)
+		indexTmpl.ExecuteTemplate(w, "layout", map[string]string{"Flash": flash})
+		//r.TopHTML(200, getFlash(session, "notice"))
 		//r.HTML(200, "index", map[string]string{"Flash": getFlash(session, "notice")})
 	})
 
-	m.Post("/login", func(req *http.Request, r render.Render, session sessions.Session) {
+	http.HandleFunc("/login", func(w http.ResponseWriter, req *http.Request) {
+		//m.Post("/login", func(req *http.Request, r render.Render, session sessions.Session) {
 		user, err := attemptLogin(req)
 
 		notice := ""
@@ -564,46 +590,76 @@ func main() {
 				notice = "Wrong username or password"
 			}
 
-			session.Set("notice", notice)
-			r.Redirect("/")
+			cookie := &http.Cookie{Name: "notice", Value: notice}
+			http.SetCookie(w, cookie)
+			//session.Set("notice", notice)
+			http.Redirect(w, req, "/", 302)
+			// r.Redirect("/")
 			return
 		}
 
-		session.Set("user_id", strconv.Itoa(user.ID))
-		r.Redirect("/mypage")
+		//session.Set("user_id", strconv.Itoa(user.ID))
+		cookie := &http.Cookie{Name: "user_id", Value: strconv.Itoa(user.ID)}
+		http.SetCookie(w, cookie)
+
+		http.Redirect(w, req, "/mypage", 302)
+		// r.Redirect("/mypage")
 	})
 
-	m.Get("/mypage", func(r render.Render, session sessions.Session) {
-		currentUser := getCurrentUser(session.Get("user_id"))
+	//m.Get("/mypage", func(r render.Render, session sessions.Session) {
+	http.HandleFunc("/mypage", func(w http.ResponseWriter, req *http.Request) {
+		//currentUser := getCurrentUser(session.Get("user_id"))
+		cookie, err := req.Cookie("user_id")
+		if err != nil {
+			fmt.Println("/mypage get cookie failed")
+		}
+		var currentUser *User
+		if cookie != nil {
+			currentUser = getCurrentUser(cookie.Value)
+		}
 
 		if currentUser == nil {
-			session.Set("notice", "You must be logged in")
-			r.Redirect("/")
+			// session.Set("notice", "You must be logged in")
+			cookie := &http.Cookie{Name: "notice", Value: "You must be logged in"}
+			http.SetCookie(w, cookie)
+			http.Redirect(w, req, "/", 302)
 			return
 		}
 
 		currentUser.getLastLogin()
-		r.HTML(200, "mypage", currentUser)
+		mypageTmpl.ExecuteTemplate(w, "layout", currentUser)
+		// r.HTML(200, "mypage", currentUser)
 	})
 
-	m.Get("/report", func(r render.Render) {
-		r.JSON(200, map[string][]string{
+	http.HandleFunc("/report", func(w http.ResponseWriter, req *http.Request) {
+		//m.Get("/report", func(r render.Render) {
+		//r.JSON(200, map[string][]string{
+		//	"banned_ips":   bannedIPs(),
+		//	"locked_users": lockedUsers(),
+		//})
+		w.Header().Set("Content-Type", "application/json")
+		ret := map[string][]string{
 			"banned_ips":   bannedIPs(),
 			"locked_users": lockedUsers(),
-		})
+		}
+		js, err := json.Marshal(ret)
+		if err != nil {
+			fmt.Printf("REPORT FAILED!!!!")
+		}
+		w.Write(js)
 	})
 
-	m.Get("/init", func(r render.Render) {
+	http.HandleFunc("/init", func(w http.ResponseWriter, req *http.Request) {
 		fmt.Printf("initLoad started")
 		startTime := time.Now()
 		initLoad()
 		elapsedTime := time.Now().Sub(startTime)
 		fmt.Printf("initLoad finished %s", elapsedTime*time.Second)
-		r.Redirect("/")
 		return
 	})
+	initUserTable() // for development
 
-	http.ListenAndServe(":8080", m)
+	http.ListenAndServe(":8080", nil)
 	// unix domain socket did not improve score, sigh ...
 	//proto := "unix"
 	//addr := "/tmp/golang-webapp.sock"
