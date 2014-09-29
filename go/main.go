@@ -651,12 +651,14 @@ func main() {
 		notice := ""
 		if err != nil || user == nil {
 			switch err {
+			case ErrWrongPassword:
+				notice = "Wrong username or password"
 			case ErrBannedIP:
 				notice = "You're banned."
 			case ErrLockedUser:
 				notice = "This account is locked."
 			default:
-				notice = "Wrong username or password"
+				notice = "foo bar"
 			}
 
 			cookie := &http.Cookie{Name: "notice", Value: notice}
