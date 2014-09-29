@@ -37,9 +37,9 @@ var mutex = &sync.Mutex{}
 var BanLogs = map[string]sql.NullInt64{}
 
 // key user_id => failure counts
-var UserBlockLogs = map[int]sql.NullInt64{}
+var UserBlockLogs = make([]sql.NullInt64, 200001, 200001)
 
-var UserIdTable = map[string](*User){}
+var UserIdTable = make([](*User), 200001, 200001)
 var UserLoginTable = map[string](*User){}
 
 func init() {
@@ -317,7 +317,8 @@ func getCurrentUser(userId interface{}) *User {
 	if !ok {
 		return nil
 	}
-	user = UserIdTable[user_id]
+	user_id_int, _ := strconv.Atoi(user_id)
+	user = UserIdTable[user_id_int]
 	//fmt.Println(user)
 
 	return user
@@ -515,7 +516,7 @@ func initUserTable() {
 	for rows.Next() {
 		user := &User{}
 		_ = rows.Scan(&user.ID, &user.Login, &user.PasswordHash, &user.Salt)
-		UserIdTable[strconv.Itoa(user.ID)] = user
+		UserIdTable[user.ID] = user
 		UserLoginTable[user.Login] = user
 	}
 
@@ -527,7 +528,7 @@ func initUserTable() {
 	for scanner.Scan() {
 		line := scanner.Text()
 		columns := strings.Split(line, "\t")
-		user_id := columns[0]
+		user_id, _ := strconv.Atoi(columns[0])
 		login := columns[1]
 		password := columns[2]
 		UserIdTable[user_id].Password = password
