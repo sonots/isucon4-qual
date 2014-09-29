@@ -42,6 +42,16 @@ var UserBlockLogs = make([]sql.NullInt64, 200001, 200001)
 var UserIdTable = make([](*User), 200001, 200001)
 var UserLoginTable = map[string](*User){}
 
+type LoginLog struct {
+	created_at time.Time
+	user_id    int
+	login      string
+	ip         string
+	succeeded  int
+}
+
+var LoginLogTable = make([](*LoginLog), 0, 100000)
+
 func init() {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Local",
@@ -139,13 +149,18 @@ func createLoginLog(succeeded bool, remoteAddr, login string, user *User) {
 		userId.Valid = true
 	}
 
-	go func() {
+	login_log := &LoginLog{time.Now(), user.ID, login, remoteAddr, succ}
+	LoginLogTable = append(LoginLogTable, login_log)
+}
+
+func finalizeLoginLogTable() {
+	for _, v := range LoginLogTable {
 		db.Exec(
 			"INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) "+
 				"VALUES (?,?,?,?,?)",
-			time.Now(), userId, login, remoteAddr, succ,
+			v.created_at, v.user_id, v.login, v.ip, v.succeeded,
 		)
-	}()
+	}
 }
 
 func isLockedUser(user *User) (bool, error) {
@@ -623,6 +638,7 @@ func main() {
 		//	"banned_ips":   bannedIPs(),
 		//	"locked_users": lockedUsers(),
 		//})
+		finalizeLoginLogTable()
 		w.Header().Set("Content-Type", "application/json")
 		ret := map[string][]string{
 			"banned_ips":   bannedIPs(),
