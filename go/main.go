@@ -127,7 +127,7 @@ var (
 	ErrWrongPassword = errors.New("Wrong password")
 )
 
-func createLoginLog(succeeded bool, remoteAddr, login string, user *User) error {
+func createLoginLog(succeeded bool, remoteAddr, login string, user *User) {
 	succ := 0
 	if succeeded {
 		succ = 1
@@ -139,13 +139,13 @@ func createLoginLog(succeeded bool, remoteAddr, login string, user *User) error 
 		userId.Valid = true
 	}
 
-	_, err := db.Exec(
-		"INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) "+
-			"VALUES (?,?,?,?,?)",
-		time.Now(), userId, login, remoteAddr, succ,
-	)
-
-	return err
+	go func() {
+		db.Exec(
+			"INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) "+
+				"VALUES (?,?,?,?,?)",
+			time.Now(), userId, login, remoteAddr, succ,
+		)
+	}()
 }
 
 func isLockedUser(user *User) (bool, error) {
