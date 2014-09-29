@@ -50,6 +50,7 @@ type LoginLog struct {
 	succeeded  int
 }
 
+var LoginLogTableMutex = &sync.Mutex{}
 var LoginLogTable = make([](*LoginLog), 0, 100000)
 
 func init() {
@@ -150,16 +151,23 @@ func createLoginLog(succeeded bool, remoteAddr, login string, user *User) {
 	}
 
 	login_log := &LoginLog{time.Now(), user.ID, login, remoteAddr, succ}
+	LoginLogTableMutex.Lock()
 	LoginLogTable = append(LoginLogTable, login_log)
+	LoginLogTableMutex.Unlock()
 }
 
 func finalizeLoginLogTable() {
-	for _, v := range LoginLogTable {
-		db.Exec(
-			"INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) "+
-				"VALUES (?,?,?,?,?)",
-			v.created_at, v.user_id, v.login, v.ip, v.succeeded,
-		)
+	var tx *sql.Tx
+	var stmt *sql.Stmt
+	for i, v := range LoginLogTable {
+		if i%10000 == 0 {
+			if i != 0 {
+				tx.Commit()
+			}
+			tx, _ = db.Begin()
+			stmt, _ = tx.Prepare("INSERT INTO login_log (`created_at`, `user_id`, `login`, `ip`, `succeeded`) VALUES (?,?,?,?,?)")
+		}
+		stmt.Exec(v.created_at, v.user_id, v.login, v.ip, v.succeeded)
 	}
 }
 
